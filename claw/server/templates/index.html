@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claw - AI 教学系统</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="header-left">
+                <h1>Claw</h1>
+                <span class="header-subtitle">AI 教学诊断系统</span>
+            </div>
+            <div class="header-right">
+                <button class="onboarding-btn" id="onboardingBtn" title="完成11道题，生成学习画像">🧠 画像测试</button>
+                <button class="kb-btn" id="kbBtn" title="查询教学知识库">📚 知识库</button>
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">就绪</span>
+            </div>
+        </header>
+        <div class="main">
+            <div class="chat-panel">
+                <div class="messages" id="messages">
+                    <div class="welcome">
+                        <h2>欢迎使用 Claw 教学诊断系统</h2>
+                        <p>输入你的问题，AI 会分析你的情绪状态、定位学习断点，然后生成个性化教学回应。</p>
+                        <p class="welcome-notice">此系统需要搭配规划系统才能更好使用，目前暂未开放规划系统。</p>
+                    </div>
+                </div>
+                <div class="input-area">
+                    <textarea id="userInput" placeholder="输入你的问题..." rows="2"></textarea>
+                    <button id="sendBtn" onclick="sendMessage()">发送</button>
+                </div>
+            </div>
+            <aside class="analysis-panel" id="analysisPanel">
+                <div class="panel-card" id="profileCard">
+                    <div class="panel-header" onclick="togglePanel('profileBody')">
+                        <span class="panel-icon">🧠</span>
+                        <span class="panel-title">学习画像</span>
+                        <span class="panel-status" id="profileStatus"></span>
+                    </div>
+                    <div class="panel-body" id="profileBody">
+                        <span class="placeholder">未生成画像，请先完成画像测试</span>
+                    </div>
+                </div>
+                <div class="panel-card">
+                    <div class="panel-header" onclick="togglePanel('emotionBody')">
+                        <span class="panel-icon">🎭</span>
+                        <span class="panel-title">情绪指纹</span>
+                        <span class="panel-status" id="emotionStatus"></span>
+                    </div>
+                    <div class="panel-body" id="emotionBody">
+                        <span class="placeholder">等待分析...</span>
+                    </div>
+                </div>
+                <div class="panel-card">
+                    <div class="panel-header" onclick="togglePanel('breakpointBody')">
+                        <span class="panel-icon">🔍</span>
+                        <span class="panel-title">断点诊断</span>
+                        <span class="panel-status" id="breakpointStatus"></span>
+                    </div>
+                    <div class="panel-body" id="breakpointBody">
+                        <span class="placeholder">等待分析...</span>
+                    </div>
+                </div>
+                <div class="panel-card">
+                    <div class="panel-header" onclick="togglePanel('scoutBody')">
+                        <span class="panel-icon">🕵️</span>
+                        <span class="panel-title">认知侦察</span>
+                        <span class="panel-status" id="scoutStatus"></span>
+                    </div>
+                    <div class="panel-body" id="scoutBody">
+                        <span class="placeholder">等待分析...</span>
+                    </div>
+                </div>
+                <div class="panel-card">
+                    <div class="panel-header" onclick="togglePanel('timingBody')">
+                        <span class="panel-icon">⏱️</span>
+                        <span class="panel-title">耗时</span>
+                        <span class="panel-status" id="timingStatus"></span>
+                    </div>
+                    <div class="panel-body" id="timingBody">
+                        <span class="placeholder">等待...</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+    <div class="modal-overlay" id="kbModal" style="display:none">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>📚 教学知识库</h2>
+                <span class="modal-close" onclick="closeKB()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="kb-upload-area" id="kbDropZone">
+                    <div class="kb-upload-icon">📁</div>
+                    <p>拖拽文件到此处或点击上传</p>
+                    <p class="kb-upload-hint">支持 .md .txt .json .pdf 格式</p>
+                    <input type="file" id="kbFileInput" accept=".md,.txt,.json,.pdf" style="display:none" onchange="uploadKBFile(this.files[0])">
+                </div>
+                <div id="kbFileList" class="kb-file-list">
+                    <div class="placeholder">加载中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="onboardingModal" style="display:none">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2 id="onboardingTitle">学习画像测试</h2>
+                <span class="modal-close" onclick="closeOnboarding()">&times;</span>
+            </div>
+            <div class="modal-body" id="onboardingBody">
+                <!-- 阶段1：输入主题 -->
+                <div id="onboardingTopic">
+                    <p class="onboarding-desc">请输入你想学习的学科/领域：</p>
+                    <input type="text" id="onboardingTopicInput" placeholder="例如：高中数学、Python编程、机器学习..." onkeydown="if(event.key==='Enter')startOnboarding()">
+                    <button class="btn btn-primary" onclick="startOnboarding()" style="margin-top:12px">生成题目</button>
+                </div>
+                <!-- 阶段2：答题 -->
+                <div id="onboardingQuestions" style="display:none">
+                    <div class="onboarding-loading">
+                        <span class="spinner"></span>
+                        <span>正在生成诊断题...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" id="onboardingFooter" style="display:none">
+                <button class="btn btn-secondary" onclick="closeOnboarding()">取消</button>
+                <button class="btn btn-primary" id="onboardingSubmit" onclick="submitOnboarding()">提交</button>
+            </div>
+        </div>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+</html>

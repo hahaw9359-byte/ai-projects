@@ -1,0 +1,22 @@
+# ===== 密钥（绝对不能上传）=====
+.env
+*.env
+.env.local
+.env.*.local
+
+# ===== Python 缓存 =====
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ===== 运行时个人数据（含真实学习记录/情绪/对话）=====
+data/
+Agent1/data/
+Agent2/data/
+Agent3/data/
+Agent2_5/data/teaching_state.md
+profile.json
+
+# ===== 日志 =====
+*.log
