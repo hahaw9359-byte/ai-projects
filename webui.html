@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 虚拟主播 · 控制台</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --card:#ffffff; --fg:#1f2328; --fg-soft:#5b6470; --fg-mute:#8b949e;
+    --line:#e5e8ec; --accent:#2563eb; --accent-soft:#eff4ff;
+    --ok:#15803d; --warn:#b45309; --danger:#b91c1c;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
+    font-size:15px; line-height:1.6;
+  }
+  header{
+    position:sticky; top:0; z-index:10;
+    background:var(--card); border-bottom:1px solid var(--line);
+    padding:14px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  }
+  header h1{font-size:17px; margin:0; font-weight:650}
+  header .meta{color:var(--fg-soft); font-size:13px}
+  header .tasks{margin-left:auto; display:flex; gap:12px; flex-wrap:wrap; font-size:13px}
+  .dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:1px}
+  .dot.ok{background:var(--ok)} .dot.bad{background:var(--danger)}
+  main{
+    max-width:1080px; margin:0 auto; padding:20px 22px 80px;
+    display:grid; grid-template-columns:repeat(2, 1fr); gap:16px;
+  }
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px 18px;
+  }
+  .card h2{font-size:14px; margin:0 0 12px; color:var(--fg-soft); font-weight:600; letter-spacing:.02em}
+  .stat-row{display:flex; justify-content:space-between; gap:12px; padding:5px 0; font-size:14px}
+  .stat-row span{color:var(--fg-soft)}
+  .stat-row b{font-weight:600; text-align:right; word-break:break-all}
+  .btn-row{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap}
+  button{
+    font:inherit; font-size:14px; padding:7px 14px; border-radius:8px;
+    border:1px solid var(--line); background:var(--card); color:var(--fg);
+    cursor:pointer; transition:background .15s, border-color .15s;
+  }
+  button:hover{background:var(--accent-soft); border-color:var(--accent); color:var(--accent)}
+  button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+  button.primary:hover{background:#1d4fd8}
+  button.active{border-color:var(--accent); color:var(--accent); background:var(--accent-soft)}
+  input,select{
+    font:inherit; font-size:14px; padding:7px 10px; border-radius:8px;
+    border:1px solid var(--line); background:var(--card); color:var(--fg); width:100%;
+  }
+  input:focus,select:focus{outline:2px solid var(--accent-soft); border-color:var(--accent)}
+  .hint{color:var(--fg-mute); font-size:12.5px; margin:10px 0 0}
+  .banner{display:none; background:#fef2f2; border:1px solid #f7c1c1; color:var(--danger);
+    border-radius:10px; padding:10px 14px; margin:0 0 16px; grid-column:1/-1; font-size:14px}
+  .banner.show{display:block}
+  .mono{font-family:"SFMono-Regular",Consolas,Menlo,monospace; font-size:12.5px}
+  #用量表{width:100%; border-collapse:collapse; font-size:13px}
+  #用量表 th,#用量表 td{border:1px solid var(--line); padding:5px 8px; text-align:left}
+  #用量表 th{background:var(--bg); font-weight:600; color:var(--fg-soft)}
+  .说-input{display:flex; gap:8px}
+  .说-input select{width:96px; flex:none}
+  @media (max-width:760px){ main{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<header>
+  <h1>AI 虚拟主播 · 控制台</h1>
+  <div class="meta" id="运行时长">连接中…</div>
+  <div class="tasks" id="任务健康"></div>
+</header>
+
+<main>
+  <div class="banner" id="断开提示">连不上服务 —— 确认直播（run_vtuber.py）正在跑，且端口是 8000。本页每 2 秒自动重试。</div>
+
+  <section class="card">
+    <h2>实时状态</h2>
+    <div class="stat-row"><span>在说</span><b id="在说">–</b></div>
+    <div class="stat-row"><span>情绪</span><b id="情绪">–</b></div>
+    <div class="stat-row"><span>队列</span><b id="队列">–</b></div>
+    <div class="stat-row"><span>行为脑</span><b id="行为脑模式">–</b></div>
+    <div class="stat-row"><span>吐字 / 被抢</span><b id="行为脑统计">–</b></div>
+  </section>
+
+  <section class="card">
+    <h2>控制</h2>
+    <div class="btn-row">
+      <button id="btn暂停">暂停卖货吐字</button>
+      <button id="btn继续">恢复卖货吐字</button>
+    </div>
+    <p class="hint">暂停 = 停卖货 + 清掉排队的卖货（正在说的这句会说完）；弹幕来了大脑照样回应，但不会把"暂停"顶掉。</p>
+    <div class="stat-row" style="margin-top:8px"><span>大脑处理批数</span><b id="大脑批数">–</b></div>
+    <div class="stat-row"><span>小脑收包 / 丢弃</span><b id="小脑统计">–</b></div>
+  </section>
+
+  <section class="card">
+    <h2>说一句（人工插话）</h2>
+    <div class="说-input">
+      <select id="说情绪">
+        <option value="">中性</option>
+        <option value="开心">开心</option>
+        <option value="温柔">温柔</option>
+        <option value="认真">认真</option>
+        <option value="惊讶">惊讶</option>
+      </select>
+      <input id="说文本" placeholder="让主播念点什么…" maxlength="120">
+      <button class="primary" id="btn说" style="flex:none">发送</button>
+    </div>
+    <p class="hint" id="说反馈">队列上限 2 句；满的时候会自动排队等一下（背压）。</p>
+  </section>
+
+  <section class="card">
+    <h2>才艺</h2>
+    <div class="stat-row"><span>当前才艺</span><b id="当前才艺">–</b></div>
+    <div class="btn-row" id="才艺按钮组"></div>
+    <p class="hint">切换在当前这句说完后生效，不打断正在说的字。</p>
+  </section>
+
+  <section class="card">
+    <h2>形象（Live2D）</h2>
+    <div class="stat-row"><span>当前形象</span><b id="当前模型">–</b></div>
+    <div class="btn-row" id="模型按钮组"></div>
+    <p class="hint">切换瞬间画面会顿一下（加载）。新形象：把文件夹放进 stage/Resources/v3/ 即可。</p>
+  </section>
+
+  <section class="card">
+    <h2>卖货文档</h2>
+    <div class="stat-row"><span>当前文档</span><b id="当前文档">–</b></div>
+    <div class="btn-row" id="文档按钮组"></div>
+    <p class="hint">切换后下一轮话术生效。放新文档：把 .txt 丢进 vtuber 的「卖货文档/」文件夹。</p>
+  </section>
+
+  <section class="card">
+    <h2>弹幕连接</h2>
+    <div class="stat-row"><span>结论</span><b id="弹幕结论">–</b></div>
+    <div class="stat-row"><span>最近一次报账</span><b id="弹幕报账" class="mono">–</b></div>
+    <div class="stat-row"><span>最后用户消息</span><b id="弹幕消息">–</b></div>
+  </section>
+
+  <section class="card">
+    <h2>用量（预估）</h2>
+    <table id="用量表">
+      <thead><tr><th>分项</th><th>调用</th><th>输入字</th><th>输出字</th></tr></thead>
+      <tbody><tr><td colspan="4">–</td></tr></tbody>
+    </table>
+    <p class="hint" id="用量口径">字数粗估（约 1 字 1 token），非计费口径。</p>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let 上次任务快照 = null;
+
+async function 调(路径, 选项) {
+  const r = await fetch(路径, 选项);
+  if (!r.ok) throw new Error((await r.json()).detail || r.status);
+  return r.json();
+}
+
+function 连上了() {
+  $('断开提示').classList.remove('show');
+}
+function 断开了() {
+  $('断开提示').classList.add('show');
+  $('运行时长').textContent = '服务未连接';
+}
+
+async function 刷新状态() {
+  try {
+    const s = await 调('/状态');
+    连上了();
+    $('运行时长').textContent = `已运行 ${Math.round(s['运行时长(秒)'])} 秒`;
+    $('在说').textContent = s['在说'] ? '说话中' : '安静';
+    $('情绪').textContent = s['情绪'] || '中性';
+    $('队列').textContent = `${s['队列']['排着']} / ${s['队列']['上限']}`;
+    const 模式名 = { idling:'空闲', idle:'空闲', performing:'演出中', suppressed:'被压制' };
+    $('行为脑模式').textContent = s['行为脑']['用户暂停']
+      ? '已暂停（手动）'
+      : (模式名[s['行为脑']['模式']] || s['行为脑']['模式']);
+    $('行为脑统计').textContent = `${s['行为脑']['吐字段数']} 段 / ${s['行为脑']['被抢次数']} 次`;
+    $('大脑批数').textContent = s['大脑']['处理批数'] + ' 批';
+    $('小脑统计').textContent =
+      `收 ${s['小脑']['in']} · 丢 ${s['小脑']['drop']} · 存疑 ${s['小脑']['suspect']}` +
+      (s['小脑']['丢弃明细'] ? `（${s['小脑']['丢弃明细']}）` : '');
+    // 任务健康灯
+    const 灯 = [];
+    for (const [名, 态] of Object.entries(s['任务健康'])) {
+      灯.push(`<span><i class="dot ${态 === '在跑' ? 'ok' : 'bad'}"></i>${名}</span>`);
+    }
+    $('任务健康').innerHTML = 灯.join('');
+  } catch (e) { 断开了(); }
+}
+
+async function 刷新才艺() {
+  try {
+    const c = await 调('/才艺');
+    $('当前才艺').textContent = c['当前'] || '–';
+    const 组 = $('才艺按钮组');
+    组.innerHTML = '';
+    c['可用'].forEach(s => {
+      const b = document.createElement('button');
+      b.textContent = s['名字'] + `（${s['id']}）`;
+      if (s['id'] === c['当前']) b.classList.add('active');
+      b.onclick = async () => { await 调(`/才艺?名字=${encodeURIComponent(s['id'])}`, {method:'POST'}); 刷新才艺(); };
+      组.appendChild(b);
+    });
+  } catch (e) {}
+}
+
+async function 刷新模型() {
+  try {
+    const m = await 调('/模型');
+    $('当前模型').textContent = m['当前'] || '–';
+    const 组 = $('模型按钮组');
+    组.innerHTML = '';
+    m['可用'].forEach(名 => {
+      const b = document.createElement('button');
+      b.textContent = 名;
+      if (名 === m['当前']) b.classList.add('active');
+      b.onclick = async () => { await 调(`/模型?名字=${encodeURIComponent(名)}`, {method:'POST'}); 刷新模型(); };
+      组.appendChild(b);
+    });
+  } catch (e) {}
+}
+
+async function 刷新文档() {
+  try {
+    const d = await 调('/文档');
+    $('当前文档').textContent = d['当前'] || '–';
+    const 组 = $('文档按钮组');
+    组.innerHTML = '';
+    d['可用'].forEach(名 => {
+      const b = document.createElement('button');
+      b.textContent = 名;
+      if (名 === d['当前']) b.classList.add('active');
+      b.onclick = async () => { await 调(`/文档?名字=${encodeURIComponent(名)}`, {method:'POST'}); 刷新文档(); };
+      组.appendChild(b);
+    });
+  } catch (e) {}
+}
+
+async function 刷新弹幕() {
+  try {
+    const d = await 调('/弹幕');
+    $('弹幕结论').textContent = d['结论'] || '–';
+    $('弹幕报账').textContent = d['最近一次报账'] || '–';
+    $('弹幕消息').textContent = (d['最后用户消息_秒前'] == null)
+      ? '还没收到过' : `${d['最后用户消息_秒前']} 秒前`;
+  } catch (e) {}
+}
+
+async function 刷新用量() {
+  try {
+    const y = await 调('/用量');
+    const tb = $('用量表').querySelector('tbody');
+    const 行 = [];
+    for (const [标签, v] of Object.entries(y['分项'])) {
+      行.push(`<tr><td>${标签}</td><td>${v['调用']}</td><td>${v['输入字']}</td><td>${v['输出字']}</td></tr>`);
+    }
+    const t = y['合计'];
+    行.push(`<tr><td><b>合计</b></td><td><b>${t['调用']}</b></td><td><b>${t['输入字']}</b></td><td><b>${t['输出字']}</b></td></tr>`);
+    行.push(`<tr><td colspan="4">预估 token：<b>${t['预估token']}</b></td></tr>`);
+    tb.innerHTML = 行.join('') || '<tr><td colspan="4">还没有调用</td></tr>';
+    $('用量口径').textContent = y['口径'];
+  } catch (e) {}
+}
+
+// ── 操作按钮 ──────────────────────────────
+$('btn暂停').onclick = async () => { try { await 调('/状态/暂停', {method:'POST'}); 刷新状态(); } catch(e){} };
+$('btn继续').onclick = async () => { try { await 调('/状态/继续', {method:'POST'}); 刷新状态(); } catch(e){} };
+
+$('btn说').onclick = async () => {
+  const 文本 = $('说文本').value.trim();
+  if (!文本) { $('说反馈').textContent = '先写一句要念的话。'; return; }
+  const 情绪 = $('说情绪').value;
+  $('说反馈').textContent = '发送中…';
+  try {
+    const r = await 调(`/说?文本=${encodeURIComponent(文本)}&情绪=${encodeURIComponent(情绪)}`, {method:'POST'});
+    $('说反馈').textContent = `已排上队列：${r['排上了']}（说完当前句就念）`;
+    $('说文本').value = '';
+  } catch (e) { $('说反馈').textContent = '发送失败：' + e.message; }
+};
+
+// ── 轮询 ──────────────────────────────────
+function 全部刷新() { 刷新状态(); 刷新弹幕(); 刷新用量(); }
+全部刷新(); 刷新才艺(); 刷新模型(); 刷新文档();
+setInterval(全部刷新, 2000);
+setInterval(刷新才艺, 5000);
+setInterval(刷新模型, 5000);
+setInterval(刷新文档, 5000);
+</script>
+</body>
+</html>
